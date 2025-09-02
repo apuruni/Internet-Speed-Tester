@@ -20,9 +20,10 @@ class SpeedTestService(private val context: Context) {
     
     // Public HTTPS test files (multiple vendors for reliability)
     val testUrls = listOf(
-        "https://speed.cloudflare.com/__down?bytes=10485760", // 10MB
-        "https://speed.hetzner.de/10MB.bin",
-        "https://download.thinkbroadband.com/10MB.zip"
+        "https://speed.cloudflare.com/__down?bytes=104857600", // 100MB
+        "https://speed.hetzner.de/100MB.bin",
+        "https://download.thinkbroadband.com/100MB.zip",
+        "https://proof.ovh.net/files/100Mb.dat"
     )
 
     val uploadUrlPrimary = "https://speed.cloudflare.com/__up"
@@ -77,35 +78,48 @@ class SpeedTestService(private val context: Context) {
         try {
             onResult(SpeedTestResult.Loading)
             val networkType = getNetworkType()
+            Log.d("SpeedTestService", "Network type: $networkType")
             
             // Ping (10% of progress)
+            Log.d("SpeedTestService", "Measuring ping...")
             val ping = measurePing()
             onProgress(0.1f)
+            Log.d("SpeedTestService", "Ping result: ${ping}ms")
             if (ping <= 0) {
                 onResult(SpeedTestResult.Error("Latency check failed"))
                 return
             }
             
             // Download (time-bounded, parallel) to 70%
+            Log.d("SpeedTestService", "Starting download speed test...")
             val downloadSpeed = measureDownloadSpeedTimed(
                 durationMs = 4500,
                 parallelStreams = 2,
                 onProgress = { progress -> onProgress(0.1f + progress * 0.6f) },
-                onInstant = { mbps -> onInstantSpeed(mbps) }
+                onInstant = { mbps -> 
+                    Log.d("SpeedTestService", "Instant download speed: ${mbps} Mbps")
+                    onInstantSpeed(mbps) 
+                }
             )
             onProgress(0.7f)
+            Log.d("SpeedTestService", "Download speed result: ${downloadSpeed} Mbps")
             if (downloadSpeed <= 0f) {
                 onResult(SpeedTestResult.Error("Download check failed"))
                 return
             }
             
             // Upload (time-bounded) to 95%
+            Log.d("SpeedTestService", "Starting upload speed test...")
             val uploadSpeed = measureUploadSpeedTimed(
                 durationMs = 2500,
                 onProgress = { progress -> onProgress(0.7f + progress * 0.25f) },
-                onInstant = { mbps -> onInstantSpeed(mbps) }
+                onInstant = { mbps -> 
+                    Log.d("SpeedTestService", "Instant upload speed: ${mbps} Mbps")
+                    onInstantSpeed(mbps) 
+                }
             )
             onProgress(0.95f)
+            Log.d("SpeedTestService", "Upload speed result: ${uploadSpeed} Mbps")
             if (uploadSpeed <= 0f) {
                 onResult(SpeedTestResult.Error("Upload check failed"))
                 return
@@ -115,6 +129,8 @@ class SpeedTestService(private val context: Context) {
             val jitter = calculateJitter(ping)
             val packetLoss = calculatePacketLoss()
             onProgress(1.0f)
+            
+            Log.d("SpeedTestService", "Speed test completed successfully - Download: ${downloadSpeed} Mbps, Upload: ${uploadSpeed} Mbps, Ping: ${ping}ms")
             
             onResult(
                 SpeedTestResult.Success(
@@ -135,22 +151,49 @@ class SpeedTestService(private val context: Context) {
     private suspend fun measurePing(): Int {
         val pingTimes = mutableListOf<Long>()
         
-        repeat(5) {
+        // Use multiple servers for more accurate ping measurement
+        val pingUrls = listOf(
+            "https://httpbin.org/status/200",
+            "https://www.google.com",
+            "https://www.cloudflare.com"
+        )
+        
+        repeat(3) { attempt ->
             val startTime = System.currentTimeMillis()
             try {
-                val request = Request.Builder().url("https://httpbin.org/status/200").build()
+                val url = pingUrls[attempt % pingUrls.size]
+                val request = Request.Builder()
+                    .url(url)
+                    .head() // Use HEAD request for faster response
+                    .build()
+                    
                 withContext(Dispatchers.IO) {
                     client.newCall(request).execute().use { response ->
                         if (response.isSuccessful) {
                             val endTime = System.currentTimeMillis()
-                            pingTimes.add(endTime - startTime)
+                            val pingTime = endTime - startTime
+                            if (pingTime > 0) {
+                                pingTimes.add(pingTime)
+                                Log.d("SpeedTestService", "Ping attempt ${attempt + 1}: ${pingTime}ms to $url")
+                            }
                         }
                     }
                 }
-            } catch (_: Exception) { }
-            delay(100)
+            } catch (e: Exception) { 
+                Log.w("SpeedTestService", "Ping attempt ${attempt + 1} failed: ${e.message}")
+            }
+            delay(200)
         }
-        return if (pingTimes.isNotEmpty()) pingTimes.average().roundToInt() else 0
+        
+        val averagePing = if (pingTimes.isNotEmpty()) {
+            pingTimes.average().roundToInt()
+        } else {
+            Log.w("SpeedTestService", "All ping attempts failed, using default value")
+            50 // Default fallback ping
+        }
+        
+        Log.d("SpeedTestService", "Average ping: ${averagePing}ms from ${pingTimes.size} successful attempts")
+        return averagePing
     }
     
     private suspend fun measureDownloadSpeed(
@@ -275,22 +318,8 @@ private suspend fun SpeedTestService.measureDownloadSpeedTimed(
 ): Float = coroutineScope {
     val endAt = System.currentTimeMillis() + durationMs
     val bytesCounter = java.util.concurrent.atomic.AtomicLong(0)
-
-    fun windowLoop() {
-        var windowBytes = 0L
-        var winStart = System.currentTimeMillis()
-        while (System.currentTimeMillis() < endAt) {
-            val now = System.currentTimeMillis()
-            val elapsed = now - winStart
-            if (elapsed >= 200) {
-                val mbps = (windowBytes * 8.0 / 1_000_000.0) / (elapsed / 1000.0)
-                onInstant(mbps.toFloat())
-                windowBytes = 0
-                winStart = now
-            }
-            Thread.sleep(10)
-        }
-    }
+    val windowBytes = java.util.concurrent.atomic.AtomicLong(0)
+    val windowStart = java.util.concurrent.atomic.AtomicLong(System.currentTimeMillis())
 
     val jobs = (0 until parallelStreams).map { idx ->
         launch(Dispatchers.IO) {
@@ -304,37 +333,50 @@ private suspend fun SpeedTestService.measureDownloadSpeedTimed(
                         val read = input.read(buffer)
                         if (read <= 0) break
                         bytesCounter.addAndGet(read.toLong())
+                        windowBytes.addAndGet(read.toLong())
                     }
                 }
             } catch (_: Exception) { }
         }
     }
 
-    // Progress updater and instant window reporter
+    // Progress updater and instant speed reporter
     val progressJob = launch(Dispatchers.Default) {
         var lastBytes = 0L
+        var lastWindowBytes = 0L
+        var lastWindowTime = System.currentTimeMillis()
+        
         while (System.currentTimeMillis() < endAt) {
             val elapsed = (durationMs - (endAt - System.currentTimeMillis())).coerceAtLeast(0)
             onProgress((elapsed.toFloat() / durationMs).coerceIn(0f, 1f))
+            
             val currentBytes = bytesCounter.get()
-            val delta = currentBytes - lastBytes
-            if (delta > 0) {
-                // emit small window Mbps
-                val mbps = (delta * 8.0 / 1_000_000.0) / 0.5 // approx window
+            val currentWindowBytes = windowBytes.get()
+            val currentTime = System.currentTimeMillis()
+            
+            // Calculate instant speed based on window
+            val windowDelta = currentWindowBytes - lastWindowBytes
+            val timeDelta = currentTime - lastWindowTime
+            
+            if (windowDelta > 0 && timeDelta > 0) {
+                val mbps = (windowDelta * 8.0 / 1_000_000.0) / (timeDelta / 1000.0)
                 onInstant(mbps.toFloat())
+                
+                // Reset window
+                windowBytes.set(0)
+                windowStart.set(currentTime)
+                lastWindowBytes = 0
+                lastWindowTime = currentTime
             }
+            
             lastBytes = currentBytes
             delay(200)
         }
         onProgress(1f)
     }
 
-    // Start a local window meter
-    val windowJob = launch(Dispatchers.Default) { windowLoop() }
-
     jobs.forEach { it.join() }
     progressJob.cancel()
-    windowJob.cancel()
 
     val totalBytes = bytesCounter.get()
     val mbps = if (totalBytes > 0 && durationMs > 0) ((totalBytes * 8.0 / 1_000_000.0) / (durationMs / 1000.0)).toFloat() else 0f
@@ -348,9 +390,9 @@ private suspend fun SpeedTestService.measureUploadSpeedTimed(
 ): Float = withContext(Dispatchers.IO) {
     val endAt = System.currentTimeMillis() + durationMs
     val partSize = 64 * 1024
-    var sent = 0L
-    var windowBytes = 0L
-    var winStart = System.currentTimeMillis()
+    val sentBytes = java.util.concurrent.atomic.AtomicLong(0)
+    val windowBytes = java.util.concurrent.atomic.AtomicLong(0)
+    val windowStart = java.util.concurrent.atomic.AtomicLong(System.currentTimeMillis())
     val data = ByteArray(partSize)
 
     val timedBody = object : RequestBody() {
@@ -359,18 +401,43 @@ private suspend fun SpeedTestService.measureUploadSpeedTimed(
         override fun writeTo(sink: okio.BufferedSink) {
             while (System.currentTimeMillis() < endAt) {
                 sink.write(data)
-                sent += partSize
-                windowBytes += partSize
-                val now = System.currentTimeMillis()
-                val elapsed = now - winStart
-                if (elapsed >= 200) {
-                    val mbps = (windowBytes * 8.0 / 1_000_000.0) / (elapsed / 1000.0)
-                    onInstant(mbps.toFloat())
-                    windowBytes = 0
-                    winStart = now
-                }
+                val bytes = partSize.toLong()
+                sentBytes.addAndGet(bytes)
+                windowBytes.addAndGet(bytes)
             }
         }
+    }
+
+    // Progress and instant speed reporter
+    val progressJob = launch(Dispatchers.Default) {
+        var lastWindowBytes = 0L
+        var lastWindowTime = System.currentTimeMillis()
+        
+        while (System.currentTimeMillis() < endAt) {
+            val elapsed = (durationMs - (endAt - System.currentTimeMillis())).coerceAtLeast(0)
+            onProgress((elapsed.toFloat() / durationMs).coerceIn(0f, 1f))
+            
+            val currentWindowBytes = windowBytes.get()
+            val currentTime = System.currentTimeMillis()
+            
+            // Calculate instant speed based on window
+            val windowDelta = currentWindowBytes - lastWindowBytes
+            val timeDelta = currentTime - lastWindowTime
+            
+            if (windowDelta > 0 && timeDelta > 0) {
+                val mbps = (windowDelta * 8.0 / 1_000_000.0) / (timeDelta / 1000.0)
+                onInstant(mbps.toFloat())
+                
+                // Reset window
+                windowBytes.set(0)
+                windowStart.set(currentTime)
+                lastWindowBytes = 0
+                lastWindowTime = currentTime
+            }
+            
+            delay(200)
+        }
+        onProgress(1f)
     }
 
     try {
@@ -383,7 +450,8 @@ private suspend fun SpeedTestService.measureUploadSpeedTimed(
         }
     } catch (_: Exception) { }
 
-    onProgress(1f)
+    progressJob.cancel()
+    val sent = sentBytes.get()
     val mbps = if (sent > 0 && durationMs > 0) ((sent * 8.0 / 1_000_000.0) / (durationMs / 1000.0)).toFloat() else 0f
     mbps
 }

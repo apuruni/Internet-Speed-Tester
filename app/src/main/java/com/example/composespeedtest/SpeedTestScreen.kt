@@ -3,7 +3,10 @@ package com.example.composespeedtest
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -11,6 +14,7 @@ import androidx.compose.material.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShowChart
@@ -26,6 +30,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -137,9 +142,10 @@ fun SpeedTestScreenContent(
             modifier = Modifier
                 .padding(horizontal = 16.dp)
                 .fillMaxWidth(),
-            backgroundColor = Color(0xFF151B2C),
-            shape = RoundedCornerShape(20.dp),
-            elevation = 0.dp
+            backgroundColor = Color(0xFF1A1F3A),
+            shape = RoundedCornerShape(24.dp),
+            elevation = 8.dp,
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
         ) {
             Box(
                 modifier = Modifier
@@ -204,44 +210,64 @@ fun SpeedTestScreenContent(
             }
         }
 
-        // Current speed below gauge (centered)
-        Row(
+        // Current speed below gauge (centered) with enhanced styling
+        Card(
             modifier = Modifier
                 .padding(horizontal = 16.dp)
                 .fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
+            backgroundColor = Color(0xFF1A1F3A).copy(alpha = 0.8f),
+            shape = RoundedCornerShape(16.dp),
+            elevation = 4.dp,
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
         ) {
-            val currentSpeed = when {
-                uiState.isTestRunning && uiState.instantSamples.isNotEmpty() -> uiState.instantSamples.last()
-                uiState.hasResults -> uiState.downloadSpeed
-                else -> 0f
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val currentSpeed = when {
+                    uiState.isTestRunning && uiState.instantSamples.isNotEmpty() -> uiState.instantSamples.last()
+                    uiState.hasResults -> uiState.downloadSpeed
+                    else -> 0f
+                }
+                Text(
+                    text = "%.1f".format(currentSpeed),
+                    color = Color.White,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 42.sp,
+                    maxLines = 1
+                )
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    text = "Mbps",
+                    style = MaterialTheme.typography.h6,
+                    color = Teal200,
+                    fontWeight = FontWeight.Medium
+                )
             }
-            Text(
-                text = "%.1f".format(currentSpeed),
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 36.sp,
-                maxLines = 1
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = "Mbps",
-                style = MaterialTheme.typography.caption,
-                color = LightColor
-            )
         }
 
         // Min / Avg / Max below gauge for cleaner alignment
-        Row(
+        Card(
             modifier = Modifier
                 .padding(horizontal = 16.dp)
                 .fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
+            backgroundColor = Color(0xFF1A1F3A).copy(alpha = 0.6f),
+            shape = RoundedCornerShape(16.dp),
+            elevation = 2.dp
         ) {
-            GaugeStat(label = "MIN", value = uiState.minSpeed)
-            GaugeStat(label = "AVG", value = uiState.avgSpeed)
-            GaugeStat(label = "MAX", value = uiState.maxSpeed)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                EnhancedGaugeStat(label = "MIN", value = uiState.minSpeed, color = Color(0xFF4CAF50))
+                EnhancedGaugeStat(label = "AVG", value = uiState.avgSpeed, color = Teal200)
+                EnhancedGaugeStat(label = "MAX", value = uiState.maxSpeed, color = Color(0xFFFF9800))
+            }
         }
 
         // Sparkline
@@ -250,15 +276,26 @@ fun SpeedTestScreenContent(
                 modifier = Modifier
                     .padding(horizontal = 16.dp)
                     .fillMaxWidth(),
-                backgroundColor = Color(0xFF151B2C),
-                shape = RoundedCornerShape(16.dp),
-                elevation = 0.dp
+                backgroundColor = Color(0xFF1A1F3A),
+                shape = RoundedCornerShape(20.dp),
+                elevation = 6.dp,
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
             ) {
-                Box(modifier = Modifier
-                    .height(80.dp)
-                    .fillMaxWidth()
-                    .padding(12.dp)) {
-                    SpeedSparkline(samples = uiState.instantSamples)
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "Speed Chart",
+                        style = MaterialTheme.typography.subtitle2,
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Box(modifier = Modifier
+                        .height(100.dp)
+                        .fillMaxWidth()) {
+                        EnhancedSpeedSparkline(samples = uiState.instantSamples)
+                    }
                 }
             }
         }
@@ -270,8 +307,20 @@ fun SpeedTestScreenContent(
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            StatCard(title = "Download", value = if (uiState.hasResults) "%.1f Mbps".format(uiState.downloadSpeed) else "--", modifier = Modifier.weight(1f))
-            StatCard(title = "Upload", value = if (uiState.hasResults) "%.1f Mbps".format(uiState.uploadSpeed) else "--", modifier = Modifier.weight(1f))
+            EnhancedStatCard(
+                title = "Download", 
+                value = if (uiState.hasResults) "%.1f Mbps".format(uiState.downloadSpeed) else "--", 
+                icon = "⬇️",
+                color = Color(0xFF4CAF50),
+                modifier = Modifier.weight(1f)
+            )
+            EnhancedStatCard(
+                title = "Upload", 
+                value = if (uiState.hasResults) "%.1f Mbps".format(uiState.uploadSpeed) else "--", 
+                icon = "⬆️",
+                color = Color(0xFF2196F3),
+                modifier = Modifier.weight(1f)
+            )
         }
 
         // Stats Row 2
@@ -281,27 +330,61 @@ fun SpeedTestScreenContent(
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            StatCard(title = "Ping", value = if (uiState.hasResults) "${uiState.ping} ms" else "--", modifier = Modifier.weight(1f))
-            StatCard(title = "Jitter", value = if (uiState.hasResults) "%.1f ms".format(uiState.jitter) else "--", modifier = Modifier.weight(1f))
+            EnhancedStatCard(
+                title = "Ping", 
+                value = if (uiState.hasResults) "${uiState.ping} ms" else "--", 
+                icon = "📡",
+                color = Color(0xFFFF9800),
+                modifier = Modifier.weight(1f)
+            )
+            EnhancedStatCard(
+                title = "Jitter", 
+                value = if (uiState.hasResults) "%.1f ms".format(uiState.jitter) else "--", 
+                icon = "📊",
+                color = Color(0xFF9C27B0),
+                modifier = Modifier.weight(1f)
+            )
         }
 
-        // Footer row
-        Row(
+        // Footer row with enhanced styling
+        Card(
             modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = 16.dp)
                 .fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+            backgroundColor = Color(0xFF1A1F3A).copy(alpha = 0.4f),
+            shape = RoundedCornerShape(12.dp),
+            elevation = 2.dp
         ) {
-            Text(
-                text = "Packet Loss: ${if (uiState.hasResults) "%.1f%%".format(uiState.packetLoss) else "--"}",
-                style = MaterialTheme.typography.caption,
-                color = Color.White.copy(alpha = 0.8f)
-            )
-            Text(
-                text = if (uiState.hasResults && uiState.networkType.isNotEmpty()) uiState.networkType else "",
-                style = MaterialTheme.typography.caption,
-                color = Color.White.copy(alpha = 0.8f)
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("📉", fontSize = 16.sp)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Packet Loss: ${if (uiState.hasResults) "%.1f%%".format(uiState.packetLoss) else "--"}",
+                        style = MaterialTheme.typography.body2,
+                        color = Color.White.copy(alpha = 0.9f),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                if (uiState.hasResults && uiState.networkType.isNotEmpty()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("📶", fontSize = 16.sp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = uiState.networkType,
+                            style = MaterialTheme.typography.body2,
+                            color = Teal200,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
         }
 
         if (uiState.isTestRunning) {
@@ -325,33 +408,146 @@ fun StatusScreenContent(
         modifier = modifier
             .fillMaxSize()
             .background(DarkGradient)
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        Text("Status", style = MaterialTheme.typography.h6, color = Color.White)
-        if (!uiState.hasResults) {
-            Text(
-                text = "No recent measurement. Start a test to see results here.",
-                style = MaterialTheme.typography.caption,
-                color = LightColor2
-            )
+        // Header
+        Card(
+            backgroundColor = Color(0xFF1A1F3A),
+            shape = RoundedCornerShape(20.dp),
+            elevation = 6.dp
+        ) {
+            Row(
+                modifier = Modifier.padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("📊", fontSize = 24.sp)
+                Text(
+                    "Network Status", 
+                    style = MaterialTheme.typography.h5, 
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
-        StatCard(title = "Download", value = if (uiState.hasResults) "%.1f Mbps".format(uiState.downloadSpeed) else "--")
-        StatCard(title = "Upload", value = if (uiState.hasResults) "%.1f Mbps".format(uiState.uploadSpeed) else "--")
-        StatCard(title = "Latency", value = if (uiState.hasResults) "${uiState.ping} ms" else "--")
-        StatCard(title = "Jitter", value = if (uiState.hasResults) "%.1f ms".format(uiState.jitter) else "--")
-        StatCard(title = "Packet loss", value = if (uiState.hasResults) "%.1f%%".format(uiState.packetLoss) else "--")
+        
+        if (!uiState.hasResults) {
+            Card(
+                backgroundColor = Color(0xFF1A1F3A).copy(alpha = 0.6f),
+                shape = RoundedCornerShape(16.dp),
+                elevation = 4.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text("ℹ️", fontSize = 20.sp)
+                    Text(
+                        text = "No recent measurement. Start a test to see results here.",
+                        style = MaterialTheme.typography.body2,
+                        color = LightColor2,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+        
+        // Stats Grid
+        if (uiState.hasResults) {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.height(400.dp)
+            ) {
+                item {
+                    EnhancedStatCard(
+                        title = "Download", 
+                        value = "%.1f Mbps".format(uiState.downloadSpeed), 
+                        icon = "⬇️",
+                        color = Color(0xFF4CAF50)
+                    )
+                }
+                item {
+                    EnhancedStatCard(
+                        title = "Upload", 
+                        value = "%.1f Mbps".format(uiState.uploadSpeed), 
+                        icon = "⬆️",
+                        color = Color(0xFF2196F3)
+                    )
+                }
+                item {
+                    EnhancedStatCard(
+                        title = "Latency", 
+                        value = "${uiState.ping} ms", 
+                        icon = "📡",
+                        color = Color(0xFFFF9800)
+                    )
+                }
+                item {
+                    EnhancedStatCard(
+                        title = "Jitter", 
+                        value = "%.1f ms".format(uiState.jitter), 
+                        icon = "📊",
+                        color = Color(0xFF9C27B0)
+                    )
+                }
+            }
+            
+            // Packet Loss Card
+            Card(
+                backgroundColor = Color(0xFF1A1F3A),
+                shape = RoundedCornerShape(20.dp),
+                elevation = 6.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text("📉", fontSize = 20.sp)
+                    Text(
+                        "Packet Loss: %.1f%%".format(uiState.packetLoss),
+                        style = MaterialTheme.typography.h6,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+        
+        // Speed Chart
         if (uiState.instantSamples.isNotEmpty()) {
             Card(
-                backgroundColor = Color(0xFF151B2C),
-                shape = RoundedCornerShape(16.dp),
-                elevation = 0.dp
+                backgroundColor = Color(0xFF1A1F3A),
+                shape = RoundedCornerShape(20.dp),
+                elevation = 6.dp,
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
             ) {
-                Box(modifier = Modifier
-                    .height(120.dp)
-                    .fillMaxWidth()
-                    .padding(12.dp)) {
-                    SpeedSparkline(samples = uiState.instantSamples)
+                Column(
+                    modifier = Modifier.padding(20.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text("📈", fontSize = 20.sp)
+                        Text(
+                            "Speed Chart",
+                            style = MaterialTheme.typography.h6,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Box(modifier = Modifier
+                        .height(150.dp)
+                        .fillMaxWidth()) {
+                        EnhancedSpeedSparkline(samples = uiState.instantSamples)
+                    }
                 }
             }
         }
@@ -364,78 +560,141 @@ fun SettingsScreenContent(
     onDarkModeChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val prefs = remember { com.example.composespeedtest.data.Prefs(context.applicationContext) }
+    
+    var showPrivacyPolicy by remember { mutableStateOf(false) }
+    var showPrivacyDetails by remember { mutableStateOf(false) }
+    var showAdsSettings by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
+    
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(DarkGradient)
+            .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text("Settings", style = MaterialTheme.typography.h6, color = Color.White)
-        Card(
-            backgroundColor = Color(0xFF151B2C),
-            shape = RoundedCornerShape(16.dp),
-            elevation = 0.dp
-        ) {
-            Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Appearance", color = Color.White)
-                Text("Choose your theme", style = MaterialTheme.typography.caption, color = LightColor2)
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                        RadioButton(selected = !darkMode, onClick = { onDarkModeChange(false) })
-                        Spacer(Modifier.width(6.dp))
-                        Text("Light", color = Color.White)
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                        RadioButton(selected = darkMode, onClick = { onDarkModeChange(true) })
-                        Spacer(Modifier.width(6.dp))
-                        Text("Dark", color = Color.White)
+        
+        // Appearance Section
+        SettingsSection(title = "Appearance") {
+            Card(
+                backgroundColor = Color(0xFF151B2C),
+                shape = RoundedCornerShape(16.dp),
+                elevation = 0.dp
+            ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Theme", color = Color.White, fontWeight = FontWeight.Medium)
+                    Text("Choose your preferred theme", style = MaterialTheme.typography.caption, color = LightColor2)
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            RadioButton(selected = !darkMode, onClick = { onDarkModeChange(false) })
+                            Spacer(Modifier.width(6.dp))
+                            Text("Light", color = Color.White)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            RadioButton(selected = darkMode, onClick = { onDarkModeChange(true) })
+                            Spacer(Modifier.width(6.dp))
+                            Text("Dark", color = Color.White)
+                        }
                     }
                 }
             }
         }
 
-        // Privacy section
-        var showPrivacy by remember { mutableStateOf(false) }
-        Text("Privacy", style = MaterialTheme.typography.subtitle1, color = Color.White)
-        Card(
-            backgroundColor = Color(0xFF151B2C),
-            shape = RoundedCornerShape(16.dp),
-            elevation = 0.dp
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+        // Privacy & Data Section
+        SettingsSection(title = "Privacy & Data") {
+            Card(
+                backgroundColor = Color(0xFF151B2C),
+                shape = RoundedCornerShape(16.dp),
+                elevation = 0.dp
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Privacy & data usage", color = Color.White)
-                    Text("Tap to view details", style = MaterialTheme.typography.caption, color = LightColor2)
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SettingsItem(
+                        title = "Privacy Policy",
+                        subtitle = "Read our complete privacy policy",
+                        onClick = { showPrivacyPolicy = true }
+                    )
+                    Divider(color = Color.White.copy(alpha = 0.1f))
+                    SettingsItem(
+                        title = "Data Usage Details",
+                        subtitle = "How we handle your test data",
+                        onClick = { showPrivacyDetails = true }
+                    )
                 }
-                Button(
-                    onClick = { showPrivacy = true },
-                    colors = ButtonDefaults.buttonColors(backgroundColor = Teal200, contentColor = Color.Black)
-                ) { Text("View") }
             }
         }
-        if (showPrivacy) {
-            AlertDialog(
-                onDismissRequest = { showPrivacy = false },
-                title = { Text("Privacy & Data Usage") },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("We transfer test data (random bytes) to measure your connection speed. We do not collect personal information.")
-                        Text("Downloads use public test files (Cloudflare, Hetzner, ThinkBroadband). Uploads post to speed endpoints.")
-                        Text("Your IP may be visible to those servers as with any internet request.")
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = { showPrivacy = false }) { Text("Close") }
+
+        // Ads & Monetization Section
+        SettingsSection(title = "Ads & Monetization") {
+            Card(
+                backgroundColor = Color(0xFF151B2C),
+                shape = RoundedCornerShape(16.dp),
+                elevation = 0.dp
+            ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SettingsItem(
+                        title = "Ad Settings",
+                        subtitle = "Customize your ad experience",
+                        onClick = { showAdsSettings = true }
+                    )
+                    Divider(color = Color.White.copy(alpha = 0.1f))
+                    SettingsItem(
+                        title = "Remove Ads",
+                        subtitle = "Support the app and remove ads",
+                        onClick = { /* TODO: Implement premium purchase */ }
+                    )
                 }
-            )
+            }
         }
+
+        // About Section
+        SettingsSection(title = "About") {
+            Card(
+                backgroundColor = Color(0xFF151B2C),
+                shape = RoundedCornerShape(16.dp),
+                elevation = 0.dp
+            ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SettingsItem(
+                        title = "App Info",
+                        subtitle = "Version 1.0.0 • Build 1",
+                        onClick = { showAboutDialog = true }
+                    )
+                    Divider(color = Color.White.copy(alpha = 0.1f))
+                    SettingsItem(
+                        title = "Rate App",
+                        subtitle = "Help us improve with your feedback",
+                        onClick = { /* TODO: Implement rating */ }
+                    )
+                }
+            }
+        }
+    }
+
+    // Privacy Policy Dialog
+    if (showPrivacyPolicy) {
+        PrivacyPolicyDialog(onDismiss = { showPrivacyPolicy = false })
+    }
+
+    // Privacy Details Dialog
+    if (showPrivacyDetails) {
+        PrivacyDetailsDialog(onDismiss = { showPrivacyDetails = false })
+    }
+
+    // Ads Settings Dialog
+    if (showAdsSettings) {
+        AdsSettingsDialog(
+            prefs = prefs,
+            onDismiss = { showAdsSettings = false }
+        )
+    }
+
+    // About Dialog
+    if (showAboutDialog) {
+        AboutDialog(onDismiss = { showAboutDialog = false })
     }
 }
 @Composable
@@ -443,6 +702,27 @@ fun GaugeStat(label: String, value: Float) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(text = label, style = MaterialTheme.typography.overline, color = LightColor)
         Text(text = "%.1f".format(value), style = MaterialTheme.typography.subtitle2, color = Color.White)
+    }
+}
+
+@Composable
+fun EnhancedGaugeStat(label: String, value: Float, color: Color) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = label, 
+            style = MaterialTheme.typography.overline, 
+            color = color.copy(alpha = 0.8f),
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = "%.1f".format(value), 
+            style = MaterialTheme.typography.h6, 
+            color = color,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -469,19 +749,94 @@ fun SpeedSparkline(samples: List<Float>) {
 }
 
 @Composable
+fun EnhancedSpeedSparkline(samples: List<Float>) {
+    val maxVal = (samples.maxOrNull() ?: 1f).coerceAtLeast(1f)
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        if (samples.size < 2) return@Canvas
+        
+        // Draw gradient background
+        val gradient = androidx.compose.ui.graphics.Brush.verticalGradient(
+            colors = listOf(
+                Teal200.copy(alpha = 0.1f),
+                Teal200.copy(alpha = 0.05f),
+                Color.Transparent
+            )
+        )
+        
+        // Create path for filled area
+        val path = Path()
+        val widthStep = size.width / (samples.size - 1)
+        
+        // Start from bottom left
+        path.moveTo(0f, size.height)
+        
+        // Draw the line
+        for (i in samples.indices) {
+            val x = i * widthStep
+            val y = size.height - (samples[i] / maxVal) * size.height
+            if (i == 0) {
+                path.lineTo(x, y)
+            } else {
+                path.lineTo(x, y)
+            }
+        }
+        
+        // Complete the path to bottom right
+        path.lineTo(size.width, size.height)
+        path.close()
+        
+        // Draw filled area
+        drawPath(path, brush = gradient)
+        
+        // Draw the line
+        var prev = Offset(0f, size.height - (samples[0] / maxVal) * size.height)
+        for (i in 1 until samples.size) {
+            val x = i * widthStep
+            val y = size.height - (samples[i] / maxVal) * size.height
+            val cur = Offset(x, y)
+            drawLine(
+                color = Teal200,
+                start = prev,
+                end = cur,
+                strokeWidth = 4f,
+                cap = StrokeCap.Round
+            )
+            prev = cur
+        }
+        
+        // Draw data points
+        for (i in samples.indices) {
+            val x = i * widthStep
+            val y = size.height - (samples[i] / maxVal) * size.height
+            drawCircle(
+                color = Teal200,
+                radius = 3f,
+                center = Offset(x, y)
+            )
+        }
+    }
+}
+
+@Composable
 fun PrimaryButton(text: String, onClick: () -> Unit) {
     Button(
         onClick = onClick,
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(28.dp),
         colors = ButtonDefaults.buttonColors(
-            backgroundColor = Green500,
-            contentColor = Color.White
+            backgroundColor = Color(0xFF00E676),
+            contentColor = Color.Black
         ),
-        elevation = ButtonDefaults.elevation(defaultElevation = 0.dp),
+        elevation = ButtonDefaults.elevation(defaultElevation = 8.dp),
         modifier = Modifier
-            .height(44.dp)
+            .height(52.dp)
+            .shadow(4.dp, RoundedCornerShape(28.dp))
     ) {
-        Text(text = text, modifier = Modifier.padding(horizontal = 16.dp))
+        Text(
+            text = text, 
+            modifier = Modifier.padding(horizontal = 20.dp),
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp
+        )
     }
 }
 
@@ -505,41 +860,98 @@ fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
+fun EnhancedStatCard(
+    title: String, 
+    value: String, 
+    icon: String,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        backgroundColor = Color(0xFF1A1F3A),
+        shape = RoundedCornerShape(20.dp),
+        elevation = 6.dp,
+        border = BorderStroke(1.dp, color.copy(alpha = 0.2f))
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = icon, 
+                fontSize = 24.sp
+            )
+            Text(
+                text = title, 
+                style = MaterialTheme.typography.caption, 
+                color = color.copy(alpha = 0.8f),
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = value, 
+                style = MaterialTheme.typography.h5, 
+                color = color, 
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
 fun TestProgressCard(state: SpeedTestUiState) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        backgroundColor = Color(0xFF151B2C),
-        shape = RoundedCornerShape(16.dp),
-        elevation = 0.dp
+        backgroundColor = Color(0xFF1A1F3A),
+        shape = RoundedCornerShape(20.dp),
+        elevation = 8.dp,
+        border = BorderStroke(1.dp, Color(0xFF00E676).copy(alpha = 0.3f))
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = "Test in Progress",
-                style = MaterialTheme.typography.subtitle1,
-                color = Color.White,
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("🔄", fontSize = 20.sp)
+                Text(
+                    text = "Test in Progress",
+                    style = MaterialTheme.typography.h6,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            
             LinearProgressIndicator(
                 progress = state.progress,
                 modifier = Modifier.fillMaxWidth(),
-                color = Green500,
+                color = Color(0xFF00E676),
                 backgroundColor = Color.White.copy(alpha = 0.1f)
             )
-            Text(
-                text = state.currentTest,
-                style = MaterialTheme.typography.body2,
-                color = LightColor2
-            )
-            Text(
-                text = "${(state.progress * 100).toInt()}%",
-                style = MaterialTheme.typography.caption,
-                color = LightColor
-            )
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = state.currentTest,
+                    style = MaterialTheme.typography.body2,
+                    color = LightColor2,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = "${(state.progress * 100).toInt()}%",
+                    style = MaterialTheme.typography.h6,
+                    color = Color(0xFF00E676),
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }
@@ -550,16 +962,24 @@ fun ErrorMessage(message: String) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        backgroundColor = Color.Red.copy(alpha = 0.18f),
-        shape = RoundedCornerShape(16.dp),
-        elevation = 0.dp
+        backgroundColor = Color(0xFF1A1F3A),
+        shape = RoundedCornerShape(20.dp),
+        elevation = 6.dp,
+        border = BorderStroke(1.dp, Color.Red.copy(alpha = 0.3f))
     ) {
-        Text(
-            text = message,
-            modifier = Modifier.padding(16.dp),
-            style = MaterialTheme.typography.body2,
-            color = Color.Red.copy(alpha = 0.9f)
-        )
+        Row(
+            modifier = Modifier.padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("⚠️", fontSize = 20.sp)
+            Text(
+                text = message,
+                style = MaterialTheme.typography.body2,
+                color = Color.Red.copy(alpha = 0.9f),
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }
 
@@ -745,6 +1165,428 @@ fun DrawScope.drawSpeedometer(
         topLeft = topLeft,
         size = arcSize,
         style = Stroke(width = 6f, cap = StrokeCap.Round)
+    )
+}
+
+// Settings UI Components
+@Composable
+fun SettingsSection(
+    title: String,
+    content: @Composable () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.subtitle1,
+            color = Color.White,
+            fontWeight = FontWeight.Medium
+        )
+        content()
+    }
+}
+
+@Composable
+fun SettingsItem(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                color = Color.White,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.caption,
+                color = LightColor2
+            )
+        }
+        Icon(
+            Icons.Default.ArrowForwardIos,
+            contentDescription = "Navigate",
+            tint = LightColor2,
+            modifier = Modifier.size(16.dp)
+        )
+    }
+}
+
+// Privacy Policy Dialog
+@Composable
+fun PrivacyPolicyDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                "Privacy Policy",
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    "Last updated: ${java.text.SimpleDateFormat("MMMM dd, yyyy", java.util.Locale.getDefault()).format(java.util.Date())}",
+                    style = MaterialTheme.typography.caption,
+                    color = LightColor2
+                )
+                
+                Text(
+                    "Information We Collect",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Text(
+                    "• Speed test results (download/upload speeds, ping, jitter)\n" +
+                    "• Network type and connection details\n" +
+                    "• App usage statistics (anonymized)\n" +
+                    "• Device information (model, OS version)",
+                    color = Color.White
+                )
+                
+                Text(
+                    "How We Use Your Information",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Text(
+                    "• Provide accurate speed test results\n" +
+                    "• Improve app performance and features\n" +
+                    "• Analyze network performance trends\n" +
+                    "• Display relevant advertisements",
+                    color = Color.White
+                )
+                
+                Text(
+                    "Data Sharing",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Text(
+                    "We do not sell your personal data. We may share anonymized, aggregated data with:\n" +
+                    "• Ad networks for relevant advertising\n" +
+                    "• Analytics providers for app improvement\n" +
+                    "• Speed test servers for accurate measurements",
+                    color = Color.White
+                )
+                
+                Text(
+                    "Your Rights",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Text(
+                    "You have the right to:\n" +
+                    "• Access your data\n" +
+                    "• Request data deletion\n" +
+                    "• Opt out of personalized ads\n" +
+                    "• Contact us with privacy concerns",
+                    color = Color.White
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = Teal200)
+            }
+        },
+        backgroundColor = Color(0xFF1E1E1E),
+        contentColor = Color.White
+    )
+}
+
+// Privacy Details Dialog
+@Composable
+fun PrivacyDetailsDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                "Data Usage Details",
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "Speed Test Data",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Text(
+                    "During speed tests, we transfer random data to measure your connection. This includes:\n" +
+                    "• Download tests: Fetch test files from public servers\n" +
+                    "• Upload tests: Send data to speed measurement endpoints\n" +
+                    "• Ping tests: Send small packets to measure latency",
+                    color = Color.White
+                )
+                
+                Text(
+                    "Test Servers",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Text(
+                    "We use servers from:\n" +
+                    "• Cloudflare (global CDN)\n" +
+                    "• Hetzner (European servers)\n" +
+                    "• ThinkBroadband (UK servers)\n" +
+                    "• Other regional providers",
+                    color = Color.White
+                )
+                
+                Text(
+                    "Data Retention",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Text(
+                    "• Test results: Stored locally on your device\n" +
+                    "• Usage analytics: Anonymized and retained for 12 months\n" +
+                    "• No personal information is collected or stored",
+                    color = Color.White
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = Teal200)
+            }
+        },
+        backgroundColor = Color(0xFF1E1E1E),
+        contentColor = Color.White
+    )
+}
+
+// Ads Settings Dialog
+@Composable
+fun AdsSettingsDialog(
+    prefs: com.example.composespeedtest.data.Prefs,
+    onDismiss: () -> Unit
+) {
+    var personalizedAds by remember { mutableStateOf(true) }
+    var showAdFrequency by remember { mutableStateOf("Normal") }
+    
+    // Load current preferences
+    LaunchedEffect(Unit) {
+        prefs.personalizedAds.collect { personalizedAds = it }
+        prefs.adFrequency.collect { showAdFrequency = it }
+    }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                "Ad Settings",
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                // Personalized Ads Toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Personalized Ads",
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            "Show ads based on your interests",
+                            style = MaterialTheme.typography.caption,
+                            color = LightColor2
+                        )
+                    }
+                    Switch(
+                        checked = personalizedAds,
+                        onCheckedChange = { 
+                            personalizedAds = it
+                            kotlinx.coroutines.GlobalScope.launch { 
+                                prefs.setPersonalizedAds(it) 
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Teal200,
+                            checkedTrackColor = Teal200.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+                
+                Divider(color = Color.White.copy(alpha = 0.1f))
+                
+                // Ad Frequency
+                Text(
+                    "Ad Frequency",
+                    color = Color.White,
+                    fontWeight = FontWeight.Medium
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf("Low", "Normal", "High").forEach { frequency ->
+                        Button(
+                            onClick = { 
+                                showAdFrequency = frequency
+                                kotlinx.coroutines.GlobalScope.launch { 
+                                    prefs.setAdFrequency(frequency) 
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                backgroundColor = if (showAdFrequency == frequency) Teal200 else Color.White.copy(alpha = 0.1f),
+                                contentColor = if (showAdFrequency == frequency) Color.Black else Color.White
+                            ),
+                            shape = RoundedCornerShape(20.dp),
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Text(
+                                text = frequency,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+                
+                Divider(color = Color.White.copy(alpha = 0.1f))
+                
+                // Ad Types
+                Text(
+                    "Ad Types",
+                    color = Color.White,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    "• Banner ads: Displayed at the bottom\n" +
+                    "• Interstitial ads: Full-screen between tests\n" +
+                    "• Rewarded ads: Optional for premium features",
+                    style = MaterialTheme.typography.caption,
+                    color = LightColor2
+                )
+                
+                Divider(color = Color.White.copy(alpha = 0.1f))
+                
+                // Premium Option
+                Card(
+                    backgroundColor = Teal200.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            "Remove All Ads",
+                            color = Teal200,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Upgrade to premium to enjoy an ad-free experience",
+                            style = MaterialTheme.typography.caption,
+                            color = LightColor2
+                        )
+                        Button(
+                            onClick = { /* TODO: Implement premium purchase */ },
+                            colors = ButtonDefaults.buttonColors(backgroundColor = Teal200, contentColor = Color.Black),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Upgrade Now")
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Save", color = Teal200)
+            }
+        },
+        backgroundColor = Color(0xFF1E1E1E),
+        contentColor = Color.White
+    )
+}
+
+// About Dialog
+@Composable
+fun AboutDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                "About Speed Test",
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "Version 1.0.0",
+                    color = Teal200,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "A modern, accurate internet speed testing app built with Jetpack Compose.",
+                    color = Color.White
+                )
+                
+                Text(
+                    "Features:",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Text(
+                    "• Real-time speed measurements\n" +
+                    "• Beautiful animated gauge\n" +
+                    "• Detailed network statistics\n" +
+                    "• Dark/Light theme support\n" +
+                    "• Privacy-focused design",
+                    color = Color.White
+                )
+                
+                Text(
+                    "Built with ❤️ using:",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Text(
+                    "• Jetpack Compose\n" +
+                    "• Kotlin Coroutines\n" +
+                    "• Material Design 3\n" +
+                    "• DataStore for preferences",
+                    color = Color.White
+                )
+                
+                Text(
+                    "© 2024 Speed Test App. All rights reserved.",
+                    style = MaterialTheme.typography.caption,
+                    color = LightColor2
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = Teal200)
+            }
+        },
+        backgroundColor = Color(0xFF1E1E1E),
+        contentColor = Color.White
     )
 }
 

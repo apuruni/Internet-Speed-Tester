@@ -15,6 +15,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ComposeSpeedTest"
         tools:targetApi="31">
+
+        <meta-data
+            android:name="android.telephony.PROPERTY_SATELLITE_DATA_OPTIMIZED"
+            android:value="com.juraj.composespeedtest" />
+
         <activity
             android:name="com.example.composespeedtest.MainActivity"
             android:exported="true"
